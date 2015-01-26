@@ -1,0 +1,124 @@
+<html>
+  <head>
+    <style>
+      #map-canvas {
+        width: 800px;
+        height: 800px;
+      }
+      
+      #top {
+      	border:1px; 
+      	padding:20px;
+      }
+
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+    <script>
+    var MYHOME_POSITON = [40.788925, -73.97667];
+    
+    var map;
+    var markers = [];
+    
+      function initialize() {
+        var mapCanvas = document.getElementById('map-canvas');
+        var mapOptions = {
+          center: new google.maps.LatLng(MYHOME_POSITON[0], MYHOME_POSITON[1]),
+          zoom: 12,
+          mapTypeId: google.maps.MapTypeId.ROADMAP
+        }
+        map = new google.maps.Map(mapCanvas, mapOptions)
+        
+    	var homeLatlng = new google.maps.LatLng(MYHOME_POSITON[0],MYHOME_POSITON[1]);
+    	var greenMarker = new google.maps.Marker({
+    	      position: homeLatlng,
+    			map: map,
+    			icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+    	      
+    	  });
+      }
+      google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+    
+    <script>
+		  $("button").click(function(){
+		  });
+		  
+		  
+		  function loadButton() {
+			  //console.log("loadButton");
+			  var textBox = document.getElementById('TEXTBOX_ID');
+			  var keyword = textBox.value;
+			  
+			  for(i=0;i<markers.length;i++) {
+				  markers[i].setMap(null);
+				 }
+			  
+			  $.ajax({
+			      url:"/service?keyword=" +  keyword + "&location=New+york&origin="+MYHOME_POSITON[0]+"," + MYHOME_POSITON[1],  
+			      success:function(data) {
+			    	 for(var i=0;i<data.length;i++) {
+			    		 plotEvent(data[i])
+			    	 }
+			         return data; 
+			      }
+			   });	
+		  }
+		
+		 
+			  
+		  
+		  
+		  function plotEvent(data) {
+			var myLatlng = new google.maps.LatLng(data['latitude'],data['longitude']);
+			
+			var cleanText ;
+			if(data["description"] != null) {
+			
+			cleanText = data["description"].replace(/<\/?[^>]+(>|$)/g, "");
+			if(cleanText.length > 200 ) {
+				cleanText = cleanText.substring(0,200) + '...';
+			}
+			} else {
+				cleanText = "none provided"
+			}
+			
+			var formattedContent = '<h2 id="firstHeading" class="firstHeading">' + data["title"]  + '</h2>'+
+			'<div id="bodyContent">'+
+			'<b>Public Transit Time: ' + data["distanceInfo"]["duration"] + '</b><br>' +
+			'Travel Distance: ' + data["distanceInfo"]["distance"] + '<br>' +
+			 'Description: '+ cleanText + '<br>' +
+			 'Event url: <a href="' + data["url"] + '">Click</a><br>' +
+			'</div>';
+		
+			
+			var infowindow = new google.maps.InfoWindow({
+				content: formattedContent
+			  });
+
+			var marker = new google.maps.Marker({
+			      position: myLatlng,
+				  map: map,
+			      title: data["title"]
+			  });
+			
+			markers.push(marker);
+			google.maps.event.addListener(marker, 'click', function() {
+			    infowindow.open(map,marker);
+			  });
+		  }
+
+	</script>
+  </head>
+  <body>
+   
+   <div id="top">
+   <h2>Stuff to do near my house! (according to eventful api)</h2>
+   <input type="text" id="TEXTBOX_ID">
+	<button type="button" onclick="loadButton()">Search</button>
+	</div>
+ 
+    <div id="map-canvas"></div>
+   
+  </body>
+</html>

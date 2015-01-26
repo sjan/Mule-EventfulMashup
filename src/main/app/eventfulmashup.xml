@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:https="http://www.mulesoft.org/schema/mule/https" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:twitter="http://www.mulesoft.org/schema/mule/twitter" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.5.2"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/twitter http://www.mulesoft.org/schema/mule/twitter/current/mule-twitter.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/https http://www.mulesoft.org/schema/mule/https/current/mule-https.xsd">
+    <http:connector name="HTTP_HTTPS" cookieSpec="netscape" validateConnections="true" sendBufferSize="0" receiveBufferSize="0" receiveBacklog="0" clientSoTimeout="10000" serverSoTimeout="10000" socketSoLinger="0" doc:name="HTTP-HTTPS"/>
+    <flow name="eventfulmashupFlow">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" doc:name="HTTP"/>
+        <http:static-resource-handler resourceBase="${app.home}/docroot" defaultFile="index.html" doc:name="HTTP Static Resource Handler"/>
+    </flow>
+    <flow name="eventfulmashupFlow1">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="service" doc:name="HTTP"  />
+         <set-session-variable variableName="requestParameters" value="#[message.inboundProperties.'http.query.params']" doc:name="Session Variable"/>
+         <logger message="Logging: #[sessionVars.requestParameters.location]   #[sessionVars.requestParameters.origin]  #[sessionVars.requestParameters.keyword]" level="INFO" doc:name="Logger"/>
+        <http:outbound-endpoint exchange-pattern="request-response" host="api.eventful.com" port="80" method="GET" doc:name="HTTP" connector-ref="HTTP_HTTPS" path="json/events/search?app_key=XPPLkN9pkWrd5D6p&amp;keywords=#[sessionVars.requestParameters.keyword]&amp;location=#[sessionVars.requestParameters.location]&amp;date=Future&amp;page_size=15">
+        <response>
+  <object-to-string-transformer />
+</response>
+        
+        </http:outbound-endpoint>
+        <custom-transformer class="eventfulmashup.EventfulMessageTransformer" doc:name="Java"/>
+
+        <logger message="Logging: #[message.payload] " level="INFO" doc:name="Logger"/>
+        <foreach collection="#[message.payload]" doc:name="For Each">
+            <logger message="iterate" level="INFO" doc:name="Logger"/>
+            <set-session-variable  variableName="eventVariable" value="#[payload]" doc:name="Session Variable"/>
+            <https:outbound-endpoint exchange-pattern="request-response" host="maps.googleapis.com" port="443" method="GET" doc:name="HTTPS"  path="maps/api/distancematrix/json?key=AIzaSyCSY_Gp2FAKtsFlPVQMI_20ruNlL__Yems&amp;origins=#[sessionVars.requestParameters.origin]&amp;destinations=#[payload.latitude],#[payload.longitude]&amp;mode=transit">
+       <response>
+  <object-to-string-transformer />
+</response>
+        
+        </https:outbound-endpoint>
+            
+        
+        	<logger message="response is #[payload]" level="INFO" doc:name="Logger"/>
+            <custom-transformer class="eventfulmashup.GoogleDistanceMatrixMessageTransformer" doc:name="Java"/>
+        	
+        </foreach>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+       
+    </flow>
+    
+    
+</mule>
